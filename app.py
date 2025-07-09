@@ -27,11 +27,9 @@ def cargar_datos():
                 df = df[COLUMNAS]
                 hojas[hoja_nombre] = df
             else:
-                # Si no existe la hoja, crear vacía con columnas correctas
                 hojas[hoja_nombre] = pd.DataFrame(columns=COLUMNAS)
         return hojas
     else:
-        # Crear archivo y hojas vacías solo si NO existe el archivo
         hojas = {h: pd.DataFrame(columns=COLUMNAS) for h in ["Ingreso", "Catálogo", "Edición"]}
         guardar_datos(hojas)
         return hojas
@@ -91,7 +89,6 @@ if menu == "Ingreso":
                 "Estado Variante": "ACTIVO"
             }
 
-            # Agregar nuevo producto a hojas Ingreso y Catálogo sin borrar lo que había
             for h in ["Ingreso", "Catálogo"]:
                 hojas[h] = pd.concat([hojas[h], pd.DataFrame([nuevo])], ignore_index=True)
 
@@ -156,4 +153,5 @@ elif menu == "Editar":
                 st.success("✅ Producto actualizado.")
     else:
         st.warning("No se encontraron productos con ese nombre.")
+
 
