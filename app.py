@@ -4,140 +4,135 @@ import os
 
 ARCHIVO_EXCEL = "catalogo_productos.xlsx"
 
-# Función para cargar o crear archivo Excel con hojas
+COLUMNAS = [
+    "Clasificación", "Tipo de Producto", "¿Posible vender en cantidad decimal?",
+    "¿Controlarás el stock del producto?", "Estado", "Impuestos", "Variante",
+    "¿permitirás ventas sin stock?", "Código de Barras", "SKU", "Marca",
+    "Sucursales", "Fecha de creacion", "Estado Variante"
+]
+
+# Cargar archivo o crear
 def cargar_datos():
     if os.path.exists(ARCHIVO_EXCEL):
         xls = pd.ExcelFile(ARCHIVO_EXCEL)
         hojas = {hoja: xls.parse(hoja) for hoja in xls.sheet_names}
+        for h in ["Ingreso", "Catálogo", "Edición"]:
+            if h not in hojas:
+                hojas[h] = pd.DataFrame(columns=COLUMNAS)
     else:
-        # Crear estructura vacía si no existe
-        columnas = [
-            "Nombre del Producto", "Clasificación", "Tipo de Producto", "¿Posible vender en cantidad decimal?",
-            "¿Controlarás el stock del producto?", "Estado", "Impuestos", "Variante", "¿permitirás ventas sin stock?",
-            "Código de Barras", "SKU", "Marca", "Sucursales", "Fecha de creacion", "Estado Variante"
-        ]
-        hojas = {
-            "Ingreso": pd.DataFrame(columns=columnas),
-            "Catálogo": pd.DataFrame(columns=columnas),
-            "Edición": pd.DataFrame(columns=columnas)
-        }
+        hojas = {h: pd.DataFrame(columns=COLUMNAS) for h in ["Ingreso", "Catálogo", "Edición"]}
         guardar_datos(hojas)
     return hojas
 
 def guardar_datos(hojas):
-    with pd.ExcelWriter(ARCHIVO_EXCEL, engine='openpyxl', mode='w') as writer:
+    with pd.ExcelWriter(ARCHIVO_EXCEL, engine="openpyxl", mode="w") as writer:
         for nombre, df in hojas.items():
             df.to_excel(writer, sheet_name=nombre, index=False)
 
-# --- App Streamlit ---
 st.set_page_config("🛒 Catálogo de Productos", layout="wide")
 st.title("🛍️ Catálogo de Productos Supermercado")
 
-# Cargar los datos del archivo
 hojas = cargar_datos()
-
-# Menú de navegación
 menu = st.sidebar.radio("Menú", ["Ingreso", "Catálogo", "Editar"])
 
-# --- Pestaña Ingreso ---
 if menu == "Ingreso":
-    st.header("➕ Ingreso de Nuevo Producto")
-    
+    st.header("➕ Ingreso de Producto")
+
     with st.form("form_ingreso"):
-        marca = st.text_input("Marca", "").strip().upper()
-        tipo_envase = st.selectbox("Tipo de envase", ["BOTELLÍN", "BOTELLA", "LATA", "PACK", "BARRIL", "CAJA", "SOBRE"])
-        variante = st.text_input("Estilo / Variante", "").strip().upper()
-        volumen = st.text_input("Volumen (ej: 330cc, 1L)", "").strip().upper()
         clasificacion = st.selectbox("Clasificación", sorted([
-            "CERVEZA", "BEBIDA", "DESTILADO", "LICOR", "VINO", "MINI COCTEL", "AGUA", "ENERGÉTICA", "ABARROTES",
-            "CHOCOLATE", "SNACK", "TABAQUERIA", "LÁCTEOS", "FIAMBRES", "CAFÉ"
+            "CERVEZA", "BEBIDA", "DESTILADO", "LICOR", "VINO", "MINI COCTEL", "AGUA", "ENERGÉTICA",
+            "ABARROTES", "CHOCOLATE", "SNACK", "TABAQUERIA", "LÁCTEOS", "FIAMBRES", "CAFÉ"
         ]))
-        tipo_producto = st.text_input("Tipo de producto (ej: IPA, LAGER, TINTO)", "").strip().upper()
-        codigo_barras = st.text_input("Código de barras (opcional)").strip()
-        sku = st.text_input("SKU (opcional)").strip().upper()
-        
-        nombre_producto = f"{marca.title()} {tipo_envase.title()} {variante.title()} {volumen}".strip()
-        
+
+        tipo_producto = st.text_input("Tipo de Producto").strip().upper()
+        variante = st.text_input("Variante").strip().upper()
+        marca = st.text_input("Marca").strip().upper()
+        codigo_barras = st.text_input("Código de Barras").strip()
+        sku = st.text_input("SKU").strip().upper()
+
+        posible_decimal = st.radio("¿Se puede vender en cantidad decimal?", ["NO", "SÍ"], index=0)
+        controlar_stock = st.radio("¿Controlarás el stock?", ["SÍ", "NO"], index=0)
+        estado = st.radio("Estado del producto", ["ACTIVO", "INACTIVO"], index=0)
+        impuestos = st.selectbox("Impuestos", ["IVA", "EXENTO"])
+        permitir_sin_stock = st.radio("¿Permitir ventas sin stock?", ["NO", "SÍ"], index=0)
+        sucursal = "PRINCIPAL"
+
+        fecha_creacion = pd.Timestamp.now().strftime("%Y-%m-%d")
+        estado_variante = estado
+
         submit = st.form_submit_button("Guardar")
 
         if submit:
             nuevo = {
-                "Nombre del Producto": nombre_producto,
-                "Clasificación": clasificacion,
+                "Clasificación": clasificacion.upper(),
                 "Tipo de Producto": tipo_producto,
-                "¿Posible vender en cantidad decimal?": "NO",
-                "¿Controlarás el stock del producto?": "SÍ",
-                "Estado": "ACTIVO",
-                "Impuestos": "IVA",
+                "¿Posible vender en cantidad decimal?": posible_decimal,
+                "¿Controlarás el stock del producto?": controlar_stock,
+                "Estado": estado,
+                "Impuestos": impuestos,
                 "Variante": variante,
-                "¿permitirás ventas sin stock?": "NO",
+                "¿permitirás ventas sin stock?": permitir_sin_stock,
                 "Código de Barras": codigo_barras,
                 "SKU": sku,
                 "Marca": marca,
-                "Sucursales": "PRINCIPAL",
-                "Fecha de creacion": pd.Timestamp.now().strftime("%Y-%m-%d"),
-                "Estado Variante": "ACTIVO"
+                "Sucursales": sucursal,
+                "Fecha de creacion": fecha_creacion,
+                "Estado Variante": estado_variante
             }
 
-            hojas["Ingreso"] = pd.concat([hojas["Ingreso"], pd.DataFrame([nuevo])], ignore_index=True)
-            hojas["Catálogo"] = pd.concat([hojas["Catálogo"], pd.DataFrame([nuevo])], ignore_index=True)
+            for h in ["Ingreso", "Catálogo"]:
+                hojas[h] = pd.concat([hojas[h], pd.DataFrame([nuevo])], ignore_index=True)
             guardar_datos(hojas)
-            st.success("✅ Producto agregado correctamente.")
+            st.success("✅ Producto guardado correctamente.")
 
-# --- Pestaña Catálogo ---
+# Visualización
 elif menu == "Catálogo":
     st.header("📦 Catálogo de Productos")
     df = hojas["Catálogo"]
 
     col1, col2 = st.columns(2)
     with col1:
-        filtro_categoria = st.selectbox("Filtrar por Clasificación", ["TODOS"] + sorted(df["Clasificación"].dropna().unique()))
+        filtro = st.selectbox("Filtrar por Clasificación", ["TODOS"] + sorted(df["Clasificación"].dropna().unique()))
     with col2:
-        busqueda = st.text_input("🔍 Buscar por nombre de producto o marca").upper()
+        busqueda = st.text_input("Buscar por marca o SKU").upper().strip()
 
     df_filtrado = df.copy()
-    if filtro_categoria != "TODOS":
-        df_filtrado = df_filtrado[df_filtrado["Clasificación"] == filtro_categoria]
+    if filtro != "TODOS":
+        df_filtrado = df_filtrado[df_filtrado["Clasificación"] == filtro]
     if busqueda:
         df_filtrado = df_filtrado[
-            df_filtrado["Nombre del Producto"].str.upper().str.contains(busqueda) |
-            df_filtrado["Marca"].str.upper().str.contains(busqueda)
+            df_filtrado["Marca"].str.contains(busqueda, case=False) |
+            df_filtrado["SKU"].str.contains(busqueda, case=False)
         ]
 
     st.dataframe(df_filtrado, use_container_width=True)
 
-# --- Pestaña Edición ---
+# Edición
 elif menu == "Editar":
-    st.header("✏️ Editar Catálogo")
-    df = hojas["Catálogo"].copy()
+    st.header("✏️ Editar Producto")
+    df = hojas["Catálogo"]
 
-    producto_buscar = st.text_input("🔎 Buscar producto por nombre")
-    df_filtrado = df[df["Nombre del Producto"].str.contains(producto_buscar, case=False)] if producto_buscar else df
+    busqueda = st.text_input("Buscar por SKU").strip().upper()
+    df_filtrado = df[df["SKU"] == busqueda] if busqueda else df.head(0)
 
     if not df_filtrado.empty:
-        index_edit = st.selectbox("Selecciona el producto a editar", df_filtrado["Nombre del Producto"].tolist())
-        idx = df[df["Nombre del Producto"] == index_edit].index[0]
-        producto = df.loc[idx]
+        seleccionado = df_filtrado.iloc[0]
+        idx = df[df["SKU"] == seleccionado["SKU"]].index[0]
 
         with st.form("editar_producto"):
-            marca = st.text_input("Marca", producto["Marca"])
-            clasificacion = st.text_input("Clasificación", producto["Clasificación"])
-            tipo = st.text_input("Tipo de Producto", producto["Tipo de Producto"])
-            variante = st.text_input("Variante", producto["Variante"])
-            estado = st.selectbox("Estado", ["ACTIVO", "INACTIVO"], index=["ACTIVO", "INACTIVO"].index(producto["Estado"]))
+            tipo_producto = st.text_input("Tipo de Producto", seleccionado["Tipo de Producto"])
+            variante = st.text_input("Variante", seleccionado["Variante"])
+            estado = st.radio("Estado", ["ACTIVO", "INACTIVO"], index=0 if seleccionado["Estado"] == "ACTIVO" else 1)
 
             guardar = st.form_submit_button("Actualizar")
 
             if guardar:
-                df.at[idx, "Marca"] = marca
-                df.at[idx, "Clasificación"] = clasificacion
-                df.at[idx, "Tipo de Producto"] = tipo
+                df.at[idx, "Tipo de Producto"] = tipo_producto
                 df.at[idx, "Variante"] = variante
                 df.at[idx, "Estado"] = estado
                 hojas["Catálogo"] = df
                 guardar_datos(hojas)
                 st.success("✅ Producto actualizado.")
-
     else:
-        st.warning("No se encontraron coincidencias.")
+        st.info("Busca un producto por SKU para editar.")
 
