@@ -14,19 +14,18 @@ COLUMNAS = [
 def cargar_datos():
     if os.path.exists(ARCHIVO_EXCEL):
         xls = pd.ExcelFile(ARCHIVO_EXCEL)
-        st.write(f"Hojas encontradas en el archivo: {xls.sheet_names}")
         hojas = {}
         for hoja_nombre in ["Ingreso", "Catálogo", "Edición"]:
             if hoja_nombre in xls.sheet_names:
                 df = xls.parse(hoja_nombre)
-                # Validar columnas, si faltan agregar vacías
+                # Aseguramos columnas
                 for col in COLUMNAS:
                     if col not in df.columns:
                         df[col] = ""
-                # Reordenar columnas para evitar problemas
                 df = df[COLUMNAS]
                 hojas[hoja_nombre] = df
             else:
+                # Crear hoja vacía si no existe
                 hojas[hoja_nombre] = pd.DataFrame(columns=COLUMNAS)
         return hojas
     else:
@@ -89,6 +88,7 @@ if menu == "Ingreso":
                 "Estado Variante": "ACTIVO"
             }
 
+            # Agregar nuevo producto a hojas Ingreso y Catálogo
             for h in ["Ingreso", "Catálogo"]:
                 hojas[h] = pd.concat([hojas[h], pd.DataFrame([nuevo])], ignore_index=True)
 
@@ -153,5 +153,4 @@ elif menu == "Editar":
                 st.success("✅ Producto actualizado.")
     else:
         st.warning("No se encontraron productos con ese nombre.")
-
 
