@@ -11,29 +11,41 @@ COLUMNAS = [
     "Código de Barras", "SKU", "Marca", "Sucursales", "Fecha de creacion", "Estado Variante"
 ]
 
-# Función para cargar o crear el archivo Excel
 def cargar_datos():
     if os.path.exists(ARCHIVO_EXCEL):
         xls = pd.ExcelFile(ARCHIVO_EXCEL)
-        hojas = {hoja: xls.parse(hoja) for hoja in xls.sheet_names}
-        for h in ["Ingreso", "Catálogo", "Edición"]:
-            if h not in hojas:
-                hojas[h] = pd.DataFrame(columns=COLUMNAS)
+        st.write(f"Hojas encontradas en el archivo: {xls.sheet_names}")
+        hojas = {}
+        for hoja_nombre in ["Ingreso", "Catálogo", "Edición"]:
+            if hoja_nombre in xls.sheet_names:
+                df = xls.parse(hoja_nombre)
+                # Validar columnas, si faltan agregar vacías
+                for col in COLUMNAS:
+                    if col not in df.columns:
+                        df[col] = ""
+                # Reordenar columnas para evitar problemas
+                df = df[COLUMNAS]
+                hojas[hoja_nombre] = df
+            else:
+                # Si no existe la hoja, crear vacía con columnas correctas
+                hojas[hoja_nombre] = pd.DataFrame(columns=COLUMNAS)
+        return hojas
     else:
+        # Crear archivo y hojas vacías solo si NO existe el archivo
         hojas = {h: pd.DataFrame(columns=COLUMNAS) for h in ["Ingreso", "Catálogo", "Edición"]}
         guardar_datos(hojas)
-    return hojas
+        return hojas
 
 def guardar_datos(hojas):
     with pd.ExcelWriter(ARCHIVO_EXCEL, engine="openpyxl", mode="w") as writer:
         for nombre, df in hojas.items():
             df.to_excel(writer, sheet_name=nombre, index=False)
 
-# --- Configuración de la App ---
+# Configuración de la app
 st.set_page_config("🛒 Catálogo de Productos", layout="wide")
 st.title("🛍️ Catálogo de Productos Supermercado")
 
-# Cargar hojas de Excel
+# Cargar hojas
 hojas = cargar_datos()
 
 # Menú lateral
@@ -56,7 +68,6 @@ if menu == "Ingreso":
         codigo_barras = st.text_input("Código de barras (opcional)").strip()
         sku = st.text_input("SKU (opcional)").strip().upper()
 
-        # Construir nombre del producto
         nombre_producto = f"{marca.title()} {tipo_envase.title()} {variante.title()} {volumen}".strip()
 
         submit = st.form_submit_button("Guardar")
@@ -80,8 +91,10 @@ if menu == "Ingreso":
                 "Estado Variante": "ACTIVO"
             }
 
+            # Agregar nuevo producto a hojas Ingreso y Catálogo sin borrar lo que había
             for h in ["Ingreso", "Catálogo"]:
                 hojas[h] = pd.concat([hojas[h], pd.DataFrame([nuevo])], ignore_index=True)
+
             guardar_datos(hojas)
             st.success("✅ Producto agregado correctamente.")
 
@@ -90,22 +103,25 @@ elif menu == "Catálogo":
     st.header("📦 Catálogo de Productos")
     df = hojas["Catálogo"].copy()
 
-    col1, col2 = st.columns(2)
-    with col1:
-        filtro_categoria = st.selectbox("Filtrar por Clasificación", ["TODOS"] + sorted(df["Clasificación"].dropna().unique()))
-    with col2:
-        busqueda = st.text_input("🔍 Buscar por nombre o marca").strip().upper()
+    if df.empty:
+        st.warning("⚠️ No hay productos cargados en el catálogo.")
+    else:
+        col1, col2 = st.columns(2)
+        with col1:
+            filtro_categoria = st.selectbox("Filtrar por Clasificación", ["TODOS"] + sorted(df["Clasificación"].dropna().unique()))
+        with col2:
+            busqueda = st.text_input("🔍 Buscar por nombre o marca").strip().upper()
 
-    df_filtrado = df.copy()
-    if filtro_categoria != "TODOS":
-        df_filtrado = df_filtrado[df_filtrado["Clasificación"] == filtro_categoria]
-    if busqueda:
-        df_filtrado = df_filtrado[
-            df_filtrado["Nombre del Producto"].str.upper().str.contains(busqueda) |
-            df_filtrado["Marca"].str.upper().str.contains(busqueda)
-        ]
+        df_filtrado = df.copy()
+        if filtro_categoria != "TODOS":
+            df_filtrado = df_filtrado[df_filtrado["Clasificación"] == filtro_categoria]
+        if busqueda:
+            df_filtrado = df_filtrado[
+                df_filtrado["Nombre del Producto"].str.upper().str.contains(busqueda) |
+                df_filtrado["Marca"].str.upper().str.contains(busqueda)
+            ]
 
-    st.dataframe(df_filtrado, use_container_width=True)
+        st.dataframe(df_filtrado, use_container_width=True)
 
 # --- Edición ---
 elif menu == "Editar":
