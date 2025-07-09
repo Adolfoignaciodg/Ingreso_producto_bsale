@@ -5,6 +5,7 @@ from datetime import datetime
 
 FILE_PATH = "catalogo_productos.xlsx"
 
+# Columnas esperadas en el archivo Excel y en la app
 COLUMNS = [
     "Nombre del Producto", "Clasificación", "Tipo de Producto",
     "¿Posible vender en cantidad decimal?", "¿Controlarás el stock del producto?",
@@ -12,14 +13,16 @@ COLUMNS = [
     "Código de Barras", "SKU", "Marca"
 ]
 
-# Listas válidas para clasificaciones y tipos producto (ejemplo, ajusta según necesidad)
+# Listas válidas para selección en dropdowns
 CLASIFICACIONES_VALIDAS = ["CERVEZA", "DESTILADOS", "VINOS", "LICORES", "SNACKS", "ABARROTES", "OTROS"]
 TIPOS_PRODUCTO_VALIDOS = ["LAGER", "ALE", "STOUT", "PILSNER", "RON", "VODKA", "WHISKY", "GINEBRA", "TEQUILA", "PISCO", "OTRO"]
 
 @st.cache_data
 def load_data():
+    """Carga el catálogo desde Excel o crea DataFrame vacío con columnas"""
     if os.path.exists(FILE_PATH):
         df = pd.read_excel(FILE_PATH)
+        # Asegurar que todas las columnas existan
         for col in COLUMNS:
             if col not in df.columns:
                 df[col] = ""
@@ -28,14 +31,16 @@ def load_data():
         return pd.DataFrame(columns=COLUMNS)
 
 def save_data(df):
+    """Guarda el DataFrame en Excel"""
     df.to_excel(FILE_PATH, index=False)
 
 def validar_y_formatear_fila(fila):
-    # Validar y forzar mayúsculas
-    fila["Marca"] = str(fila["Marca"]).upper()
-    fila["Clasificación"] = str(fila["Clasificación"]).upper()
-    fila["Tipo de Producto"] = str(fila["Tipo de Producto"]).upper()
-    fila["Nombre del Producto"] = str(fila["Nombre del Producto"]).upper()
+    """Validar y formatear los datos de una fila antes de guardar"""
+    # Forzar mayúsculas a campos clave
+    fila["Marca"] = str(fila["Marca"]).strip().upper()
+    fila["Clasificación"] = str(fila["Clasificación"]).strip().upper()
+    fila["Tipo de Producto"] = str(fila["Tipo de Producto"]).strip().upper()
+    fila["Nombre del Producto"] = str(fila["Nombre del Producto"]).strip().upper()
     
     # Validar clasificacion y tipo producto
     if fila["Clasificación"] not in CLASIFICACIONES_VALIDAS:
@@ -45,7 +50,7 @@ def validar_y_formatear_fila(fila):
         st.warning(f"Tipo de Producto inválido: {fila['Tipo de Producto']}. Se cambiará a OTRO.")
         fila["Tipo de Producto"] = "OTRO"
     
-    # Validar campos requeridos
+    # Campos obligatorios
     if not fila["Marca"]:
         raise ValueError("El campo 'Marca' no puede estar vacío.")
     if not fila["Nombre del Producto"]:
@@ -54,6 +59,7 @@ def validar_y_formatear_fila(fila):
     return fila
 
 def ingreso_producto(df):
+    """Formulario para ingresar un nuevo producto"""
     st.header("Ingreso de nuevo producto")
 
     marca = st.text_input("Marca")
@@ -68,7 +74,7 @@ def ingreso_producto(df):
     permitir_sin_stock = st.selectbox("¿Permitirás ventas sin stock?", ["Sí", "No"])
     codigo_barras = st.text_input("Código de Barras")
     sku = st.text_input("SKU")
-    
+
     fecha_creacion = datetime.now().strftime("%Y-%m-%d")
 
     if st.button("Agregar producto"):
@@ -96,9 +102,10 @@ def ingreso_producto(df):
             st.error(str(e))
 
 def editar_catalogo(df):
+    """Editar tabla completa del catálogo con botón para guardar"""
     st.header("Catálogo de productos")
     edited_df = st.data_editor(df, num_rows="dynamic")
-    
+
     if st.button("Guardar cambios"):
         try:
             # Validar y formatear todas las filas antes de guardar
